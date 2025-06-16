@@ -1,45 +1,9 @@
-import type {
-  RawListing,
-  ProcessedListing,
-  GeoData,
-  CombinedListing,
-} from "../../types"
+import type { CombinedListing } from "../../types"
 
 export async function loadListings(): Promise<CombinedListing[]> {
   try {
-    const [listingsRes, processedRes, geoRes] = await Promise.all([
-      fetch("/data/listings.json"),
-      fetch("/data/processed_listings.json"),
-      fetch("/data/geodata.json"),
-    ])
-
-    const listings = (await listingsRes.json()) as RawListing[]
-    const processed = (await processedRes.json()) as ProcessedListing[]
-    const geo = (await geoRes.json()) as GeoData[]
-
-    // Create lookup maps for better performance
-    const processedMap = new Map(processed.filter(Boolean).map(p => [p.id, p]))
-    const geoMap = new Map(geo.map(g => [g.id, g]))
-
-    // Combine the data
-    const combined: CombinedListing[] = listings
-      .map(listing => {
-        const processedData = processedMap.get(listing.id)
-        const geoData = geoMap.get(listing.id)
-
-        if (!processedData || !geoData) {
-          return null
-        }
-
-        return {
-          ...listing,
-          processed: processedData,
-          geo: geoData,
-        }
-      })
-      .filter((listing): listing is CombinedListing => listing !== null)
-
-    return combined
+    const listings = await fetch("/api/listings")
+    return (await listings.json()).data as CombinedListing[]
   } catch (error) {
     console.error("Failed to load listings:", error)
     return []

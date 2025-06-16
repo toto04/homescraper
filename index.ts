@@ -1,5 +1,5 @@
 import { start } from "./src/server"
-import { botStart } from "./src/telegram"
+// import { botStart } from "./src/telegram"
 
 start()
-botStart()
+// botStart()

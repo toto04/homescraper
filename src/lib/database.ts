@@ -41,8 +41,10 @@ export class Database {
   }
 
   // Raw Listings methods
-  async insertRawListing(listing: RawListing): Promise<RawListing> {
-    return await this.rawListingsDb.insert(listing)
+  async insertRawListing(listing: RawListing): Promise<void> {
+    await this.rawListingsDb.update({ id: listing.id }, listing, {
+      upsert: true,
+    })
   }
 
   async insertRawListings(listings: RawListing[]): Promise<RawListing[]> {
@@ -58,10 +60,10 @@ export class Database {
   }
 
   // Processed Listings methods
-  async insertProcessedListing(
-    listing: ProcessedListing
-  ): Promise<ProcessedListing> {
-    return await this.processedListingsDb.insert(listing)
+  async insertProcessedListing(listing: ProcessedListing): Promise<void> {
+    await this.processedListingsDb.update({ id: listing.id }, listing, {
+      upsert: true,
+    })
   }
 
   async insertProcessedListings(
@@ -79,8 +81,8 @@ export class Database {
   }
 
   // GeoData methods
-  async insertGeoData(geoData: GeoData): Promise<GeoData> {
-    return await this.geoDataDb.insert(geoData)
+  async insertGeoData(geoData: GeoData): Promise<void> {
+    await this.geoDataDb.update({ id: geoData.id }, geoData, { upsert: true })
   }
 
   async insertGeoDataBatch(geoData: GeoData[]): Promise<GeoData[]> {

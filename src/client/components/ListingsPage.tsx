@@ -32,6 +32,7 @@ export function ListingsPage() {
 
   useEffect(() => {
     loadListings().then(data => {
+      console.log("Loaded listings:", data)
       setListings(data)
 
       // Set initial filter ranges based on data

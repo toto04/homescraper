@@ -3,6 +3,7 @@ import { fileURLToPath } from "url"
 import { dirname, resolve } from "path"
 import { db } from "./lib/database"
 import type { RawListing, ProcessedListing, GeoData } from "./types"
+import { processListing } from "./lib/scrape"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -97,6 +98,30 @@ fastify.get("/api/stats", async (_request, reply) => {
 fastify.get("/api/health", async () => {
   return { status: "ok", timestamp: new Date().toISOString() }
 })
+
+fastify.post<{ Body: { html: string; url: string } }>(
+  "/api/parse",
+  async (request, reply) => {
+    try {
+      const { html, url } = request.body
+      if (!html || typeof html !== "string") {
+        reply.status(400).send({ error: "Invalid HTML input" })
+        return
+      }
+      if (!url || typeof url !== "string") {
+        reply.status(400).send({ error: "Invalid URL input" })
+        return
+      }
+
+      const data = await processListing({ html, url })
+
+      return reply.send({ success: true, data })
+    } catch (error) {
+      fastify.log.error(error)
+      reply.status(500).send({ error: "Failed to parse HTML" })
+    }
+  }
+)
 
 // Data import endpoints (for administrative use)
 fastify.post<{ Body: { listings: RawListing[] } }>(
