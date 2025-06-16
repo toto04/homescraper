@@ -17,13 +17,13 @@ browser = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    camoufox = AsyncCamoufox(os=["windows", "macos", "linux"], humanize=True, headless=True)
     global browser
-    asd = AsyncCamoufox(os=["windows", "macos", "linux"], humanize=True, headless=True)
-    browser = await asd.__aenter__()
+    browser = await camoufox.__aenter__()
     yield
     # Shutdown
     if browser:
-        await asd.__aexit__(None, None, None)
+        await camoufox.__aexit__(None, None, None)
 
 app = FastAPI(title="Home Scraper API", version="1.0.0", lifespan=lifespan)
 
