@@ -107,5 +107,4 @@ export type SortField =
   | "punteggio"
   | "duomoDistance"
   | "metroDistance"
-  | "superficie"
 export type SortDirection = "asc" | "desc"

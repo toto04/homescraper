@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Header } from "./Header"
 import { StatsOverview } from "./StatsOverview"
 import { Filters } from "./Filters"
@@ -13,6 +13,8 @@ import type {
   SortDirection,
 } from "../../types"
 import { loadListings } from "../lib/data"
+
+let timeout: NodeJS.Timeout | null = null
 
 export function ListingsPage() {
   const [listings, setListings] = useState<CombinedListing[]>([])
@@ -38,7 +40,10 @@ export function ListingsPage() {
 
     // Set initial filter ranges based on data
     const maxPrice = Math.max(...data.map(l => l.price))
-    const maxDuomoDistance = Math.max(...data.map(l => l.geo.deltaDuomo || 0))
+    const maxDuomoDistance = Math.min(
+      Math.max(...listings.map(l => l.geo.deltaDuomo || 0), 0),
+      20000
+    )
     const maxMetroDistance = Math.max(
       ...data.map(l =>
         l.geo.metro?.distance.value ? l.geo.metro.distance.value / 1000 : 0
@@ -58,76 +63,9 @@ export function ListingsPage() {
     refreshListings()
   }, [])
 
-  const filteredAndSortedListings = useMemo(() => {
-    let filtered = listings.filter(listing => {
-      // Tipologia filter
-      if (
-        filters.tipologia.length > 0 &&
-        !filters.tipologia.includes(listing.processed.tipologia)
-      ) {
-        return false
-      }
-
-      // Price range filter
-      if (
-        listing.price < filters.priceRange[0] ||
-        listing.price > filters.priceRange[1]
-      ) {
-        return false
-      }
-
-      // Aria condizionata filter
-      if (
-        filters.ariaCondizionata !== null &&
-        listing.processed.ariaCondizionata !== filters.ariaCondizionata
-      ) {
-        return false
-      }
-
-      // Riscaldamento filter
-      if (
-        filters.riscaldamento.length > 0 &&
-        !filters.riscaldamento.includes(listing.processed.riscaldamento)
-      ) {
-        return false
-      }
-
-      // Arredamento filter
-      if (
-        filters.livelloArredamento.length > 0 &&
-        !filters.livelloArredamento.includes(
-          listing.processed.livelloArredamento
-        )
-      ) {
-        return false
-      }
-
-      // Duomo distance filter
-      if (
-        listing.geo.deltaDuomo &&
-        listing.geo.deltaDuomo > filters.maxDuomoDistance
-      ) {
-        return false
-      }
-
-      // Metro distance filter
-      if (listing.geo.metro?.distance.value) {
-        const metroDistanceKm = listing.geo.metro.distance.value / 1000
-        if (metroDistanceKm > filters.maxMetroDistance) {
-          return false
-        }
-      }
-
-      // Punteggio filter
-      if (listing.processed.punteggio < filters.minPunteggio) {
-        return false
-      }
-
-      return true
-    })
-
-    // Sort the filtered results
-    filtered.sort((a, b) => {
+  const sorted = useMemo(() => {
+    console.log("Sorting listings by:", sortField, sortDirection)
+    return [...listings].sort((a, b) => {
       let valueA: number
       let valueB: number
 
@@ -148,17 +86,6 @@ export function ListingsPage() {
           valueA = a.geo.metro?.distance.value || Infinity
           valueB = b.geo.metro?.distance.value || Infinity
           break
-        case "superficie":
-          // Extract superficie from features
-          const surfaceA = parseFloat(
-            a.features.Superficie?.replace(/[^0-9.]/g, "") || "0"
-          )
-          const surfaceB = parseFloat(
-            b.features.Superficie?.replace(/[^0-9.]/g, "") || "0"
-          )
-          valueA = surfaceA
-          valueB = surfaceB
-          break
         default:
           return 0
       }
@@ -169,16 +96,53 @@ export function ListingsPage() {
         return valueB - valueA
       }
     })
+  }, [listings, sortField, sortDirection])
 
-    return filtered
-  }, [listings, filters, sortField, sortDirection])
+  const filterFunction = useCallback(
+    (listing: CombinedListing) => {
+      const theWholeBooleanThing =
+        (filters.tipologia.length > 0 &&
+          !filters.tipologia.includes(listing.processed.tipologia)) ||
+        listing.price < filters.priceRange[0] ||
+        listing.price > filters.priceRange[1] ||
+        (filters.ariaCondizionata !== null &&
+          listing.processed.ariaCondizionata !== filters.ariaCondizionata) ||
+        (filters.riscaldamento.length > 0 &&
+          !filters.riscaldamento.includes(listing.processed.riscaldamento)) ||
+        (filters.livelloArredamento.length > 0 &&
+          !filters.livelloArredamento.includes(
+            listing.processed.livelloArredamento
+          )) ||
+        (listing.geo.deltaDuomo &&
+          listing.geo.deltaDuomo > filters.maxDuomoDistance) ||
+        (listing.geo.metro?.distance.value &&
+          listing.geo.metro.distance.value / 1000 > filters.maxMetroDistance) ||
+        listing.processed.punteggio < filters.minPunteggio
+      return !theWholeBooleanThing
+    },
+    [filters]
+  )
+
+  const filteredAndSortedListings = useMemo(
+    () => sorted.filter(filterFunction),
+    [listings, filterFunction, sorted]
+  )
 
   const handleSortChange = (field: SortField, direction: SortDirection) => {
     setSortField(field)
     setSortDirection(direction)
   }
 
-  if (loading) {
+  const onFiltersChange = useCallback((f: FilterState) => {
+    if (timeout) clearTimeout(timeout)
+    timeout = setTimeout(() => {
+      console.log("Applying filters:", f)
+      setFilters(f)
+      timeout = null
+    }, 500)
+  }, [])
+
+  if (loading && listings.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin" />
@@ -201,11 +165,7 @@ export function ListingsPage() {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Filters Sidebar */}
           <div className="lg:w-80">
-            <Filters
-              listings={listings}
-              filters={filters}
-              onFiltersChange={setFilters}
-            />
+            <Filters listings={listings} onFiltersChange={onFiltersChange} />
           </div>
 
           {/* Main Content */}
@@ -245,7 +205,15 @@ export function ListingsPage() {
                   <ListingCard
                     key={listing.id}
                     listing={listing}
-                    onActionUpdate={refreshListings}
+                    onActionUpdate={() => {
+                      const updatedListings = [...listings]
+                      const index = updatedListings.findIndex(
+                        l => l.id === listing.id
+                      )
+                      if (index !== -1) updatedListings.splice(index, 1)
+                      setListings(updatedListings)
+                      refreshListings()
+                    }}
                   />
                 ))}
               </div>

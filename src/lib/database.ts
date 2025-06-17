@@ -8,6 +8,7 @@ import type {
   CombinedListing,
   UserActions,
 } from "../types.js"
+import { score } from "./score.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -211,7 +212,8 @@ export class Database {
 
         return combinedListing
       })
-      .filter((listing): listing is CombinedListing => listing !== null)
+      .filter((l): l is CombinedListing => l !== null)
+      .map(score)
 
     return combined
   }
@@ -229,12 +231,12 @@ export class Database {
       return null
     }
 
-    return {
+    return score({
       ...rawListing,
       processed: processedListing,
       geo: geoDataItem,
       userActions: userAction || undefined,
-    }
+    })
   }
 
   // Utility methods

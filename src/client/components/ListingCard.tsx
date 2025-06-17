@@ -70,7 +70,7 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
           </Badge>
           <Badge className={`${getScoreColor(processed.punteggio)} text-white`}>
             <Star className="w-3 h-3 mr-1" />
-            {processed.punteggio}
+            {processed.punteggio.toFixed(1)}
           </Badge>
         </div>
       </div>
@@ -78,12 +78,24 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
       <CardHeader className="pb-3">
         <CardTitle className="text-lg line-clamp-2">{listing.title}</CardTitle>
         <div className="flex items-center text-sm text-muted-foreground">
-          <MapPin className="w-4 h-4 mr-1" />
-          {processed.indirizzo}
+          <a
+            href={
+              geo.geocode
+                ? `https://www.google.com/maps/place/?q=place_id:${geo.geocode.place_id}`
+                : `https://www.google.com/maps/place/?q=${geo.address}`
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center hover:underline gap-0.5"
+          >
+            <MapPin className="w-4 h-4 mr-1" />
+            {geo.address}
+            <ExternalLink className="w-4 h-4 mr-1" />
+          </a>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 flex flex-col h-full">
         {/* Key Features */}
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="flex items-center">
@@ -120,7 +132,8 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
               <span className="text-muted-foreground">Metro più vicina:</span>
               <span className="font-medium">
                 {geo.metro.name} (
-                {formatDistance(geo.metro.distance.value / 1000)})
+                {formatDistance(geo.metro.distance.value / 1000)} -{" "}
+                {geo.metro.distance.text})
               </span>
             </div>
           )}
@@ -129,27 +142,33 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
         {/* Cost Breakdown */}
         <div className="space-y-2 pt-2 border-t">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Costo stimato:</span>
+            <span className="text-muted-foreground">Affitto:</span>
+            <span className="font-medium">
+              {formatPrice(listing.price)}/mese
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Costo stimato da GPT:</span>
             <span className="font-medium">
               {formatPrice(processed.costoMensileStimato)}/mese
             </span>
           </div>
-          {processed.cauzione && (
+          {processed.cauzione !== null ? (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Cauzione:</span>
               <span className="font-medium">
                 {formatPrice(processed.cauzione)}
               </span>
             </div>
-          )}
-          {processed.speseCondominiali && (
+          ) : null}
+          {processed.speseCondominiali !== null ? (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Spese cond.:</span>
               <span className="font-medium">
                 {formatPrice(processed.speseCondominiali)}/mese
               </span>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Utilities */}
@@ -198,7 +217,7 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
         )}
 
         {/* Actions */}
-        <div className="pt-2 border-t space-y-2">
+        <div className="pt-2 border-t mt-auto space-y-2">
           {/* User Action Buttons */}
           <div className="flex gap-2">
             <Button

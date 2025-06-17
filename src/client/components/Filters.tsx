@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Checkbox } from "./ui/checkbox"
 import { Label } from "./ui/label"
@@ -16,44 +16,78 @@ import {
   getTipologiaLabel,
   getRiscaldamentoLabel,
   getArredamentoLabel,
-} from "../lib/data"
+} from "@/lib/data"
 
 interface FiltersProps {
   listings: CombinedListing[]
-  filters: FilterState
   onFiltersChange: (filters: FilterState) => void
 }
 
-export function Filters({ listings, filters, onFiltersChange }: FiltersProps) {
+export function Filters(props: FiltersProps) {
+  const { listings } = props
+
+  const defaultFilters = useMemo(() => {
+    const maxPrice = Math.max(...listings.map(l => l.price))
+    const maxDuomoDistance = Math.min(
+      Math.max(...listings.map(l => l.geo.deltaDuomo || 0), 0),
+      10
+    )
+    const maxMetroDistance = Math.max(
+      ...listings.map(l =>
+        l.geo.metro?.distance.value ? l.geo.metro.distance.value / 1000 : 0
+      )
+    )
+
+    const defaultFilters: FilterState = {
+      tipologia: ["intero", "stanze_multiple"],
+      priceRange: [0, maxPrice],
+      ariaCondizionata: null,
+      riscaldamento: [],
+      livelloArredamento: [],
+      maxDuomoDistance,
+      maxMetroDistance,
+      minPunteggio: 0,
+    }
+    return defaultFilters
+  }, [listings])
+
+  const tipologiaOptions = useMemo(
+    () => [...new Set(listings.map(l => l.processed.tipologia))],
+    [listings]
+  )
+  const riscaldamentoOptions = useMemo(
+    () => [...new Set(listings.map(l => l.processed.riscaldamento))],
+    [listings]
+  )
+  const arredamentoOptions = useMemo(
+    () => [...new Set(listings.map(l => l.processed.livelloArredamento))],
+    [listings]
+  )
+
+  const [filters, setFiltersState] = useState<FilterState>(defaultFilters)
+
   const [priceRange, setPriceRange] = useState<[number, number]>(
     filters.priceRange
   )
 
-  // Get unique values for filter options
-  const tipologiaOptions = [
-    ...new Set(listings.map(l => l.processed.tipologia)),
-  ]
-  const riscaldamentoOptions = [
-    ...new Set(listings.map(l => l.processed.riscaldamento)),
-  ]
-  const arredamentoOptions = [
-    ...new Set(listings.map(l => l.processed.livelloArredamento)),
-  ]
-
-  const maxPrice = Math.max(...listings.map(l => l.price))
-  const maxDuomoDistance = Math.max(...listings.map(l => l.geo.deltaDuomo || 0))
-  const maxMetroDistance = Math.max(
-    ...listings.map(l =>
-      l.geo.metro?.distance.value ? l.geo.metro.distance.value / 1000 : 0
-    )
+  const onChange = useCallback(
+    (filters: FilterState) => {
+      setFiltersState(filters)
+      props.onFiltersChange(filters)
+    },
+    [props.onFiltersChange]
   )
+
+  useEffect(() => {
+    onChange(defaultFilters)
+  }, [onChange, defaultFilters])
 
   const handleTipologiaChange = (tipologia: string, checked: boolean) => {
     const newTipologia = checked
       ? [...filters.tipologia, tipologia]
       : filters.tipologia.filter(t => t !== tipologia)
 
-    onFiltersChange({ ...filters, tipologia: newTipologia })
+    onChange({ ...filters, tipologia: newTipologia })
   }
 
   const handleRiscaldamentoChange = (
@@ -64,7 +98,7 @@ export function Filters({ listings, filters, onFiltersChange }: FiltersProps) {
       ? [...filters.riscaldamento, riscaldamento]
       : filters.riscaldamento.filter(r => r !== riscaldamento)
 
-    onFiltersChange({ ...filters, riscaldamento: newRiscaldamento })
+    onChange({ ...filters, riscaldamento: newRiscaldamento })
   }
 
   const handleArredamentoChange = (arredamento: string, checked: boolean) => {
@@ -72,22 +106,12 @@ export function Filters({ listings, filters, onFiltersChange }: FiltersProps) {
       ? [...filters.livelloArredamento, arredamento]
       : filters.livelloArredamento.filter(a => a !== arredamento)
 
-    onFiltersChange({ ...filters, livelloArredamento: newArredamento })
+    onChange({ ...filters, livelloArredamento: newArredamento })
   }
 
   const clearFilters = () => {
-    const defaultFilters: FilterState = {
-      tipologia: [],
-      priceRange: [0, maxPrice],
-      ariaCondizionata: null,
-      riscaldamento: [],
-      livelloArredamento: [],
-      maxDuomoDistance: maxDuomoDistance,
-      maxMetroDistance: maxMetroDistance,
-      minPunteggio: 0,
-    }
     setPriceRange(defaultFilters.priceRange)
-    onFiltersChange(defaultFilters)
+    onChange(defaultFilters)
   }
 
   return (
@@ -131,13 +155,13 @@ export function Filters({ listings, filters, onFiltersChange }: FiltersProps) {
             value={priceRange}
             onValueChange={value => setPriceRange(value as [number, number])}
             onValueCommit={value =>
-              onFiltersChange({
+              onChange({
                 ...filters,
                 priceRange: value as [number, number],
               })
             }
             min={0}
-            max={maxPrice}
+            max={defaultFilters.priceRange[1]}
             step={50}
             className="mt-2"
           />
@@ -154,7 +178,7 @@ export function Filters({ listings, filters, onFiltersChange }: FiltersProps) {
             }
             onValueChange={value => {
               const newValue = value === "all" ? null : value === "true"
-              onFiltersChange({ ...filters, ariaCondizionata: newValue })
+              onChange({ ...filters, ariaCondizionata: newValue })
             }}
           >
             <SelectTrigger className="mt-2">
@@ -224,10 +248,10 @@ export function Filters({ listings, filters, onFiltersChange }: FiltersProps) {
           <Slider
             value={[filters.maxDuomoDistance]}
             onValueChange={value =>
-              onFiltersChange({ ...filters, maxDuomoDistance: value[0] })
+              onChange({ ...filters, maxDuomoDistance: value[0] })
             }
             min={0}
-            max={maxDuomoDistance}
+            max={defaultFilters.maxDuomoDistance}
             step={0.5}
             className="mt-2"
           />
@@ -241,10 +265,10 @@ export function Filters({ listings, filters, onFiltersChange }: FiltersProps) {
           <Slider
             value={[filters.maxMetroDistance]}
             onValueChange={value =>
-              onFiltersChange({ ...filters, maxMetroDistance: value[0] })
+              onChange({ ...filters, maxMetroDistance: value[0] })
             }
             min={0}
-            max={maxMetroDistance}
+            max={defaultFilters.maxMetroDistance}
             step={0.1}
             className="mt-2"
           />
@@ -258,7 +282,7 @@ export function Filters({ listings, filters, onFiltersChange }: FiltersProps) {
           <Slider
             value={[filters.minPunteggio]}
             onValueChange={value =>
-              onFiltersChange({ ...filters, minPunteggio: value[0] })
+              onChange({ ...filters, minPunteggio: value[0] })
             }
             min={0}
             max={100}
