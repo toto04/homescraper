@@ -10,6 +10,61 @@ export async function loadListings(): Promise<CombinedListing[]> {
   }
 }
 
+export async function loadSavedListings(): Promise<CombinedListing[]> {
+  try {
+    const response = await fetch("/api/listings/saved")
+    return (await response.json()).data as CombinedListing[]
+  } catch (error) {
+    console.error("Failed to load saved listings:", error)
+    return []
+  }
+}
+
+export async function loadHiddenListings(): Promise<CombinedListing[]> {
+  try {
+    const response = await fetch("/api/listings/hidden")
+    return (await response.json()).data as CombinedListing[]
+  } catch (error) {
+    console.error("Failed to load hidden listings:", error)
+    return []
+  }
+}
+
+export async function updateListingAction(
+  listingId: string,
+  action: "save" | "hide" | "unsave" | "unhide",
+  notes?: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/listings/${listingId}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, notes }),
+    })
+    return response.ok
+  } catch (error) {
+    console.error("Failed to update listing action:", error)
+    return false
+  }
+}
+
+export async function updateListingNotes(
+  listingId: string,
+  notes: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/listings/${listingId}/notes`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes }),
+    })
+    return response.ok
+  } catch (error) {
+    console.error("Failed to update listing notes:", error)
+    return false
+  }
+}
+
 export function formatPrice(price: number): string {
   return new Intl.NumberFormat("it-IT", {
     style: "currency",

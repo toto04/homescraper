@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Badge } from "./ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
@@ -8,6 +9,11 @@ import {
   AirVent,
   Thermometer,
   Home,
+  Heart,
+  EyeOff,
+  Eye,
+  HeartOff,
+  StickyNote,
 } from "lucide-react"
 import type { CombinedListing } from "../../types"
 import {
@@ -16,15 +22,30 @@ import {
   getTipologiaLabel,
   getRiscaldamentoLabel,
   getArredamentoLabel,
+  updateListingAction,
 } from "../lib/data"
 import { ListingDialog } from "./ListingDialog"
+import { NotesEditor } from "./NotesEditor"
 
 interface ListingCardProps {
   listing: CombinedListing
+  onActionUpdate?: () => void
 }
 
-export function ListingCard({ listing }: ListingCardProps) {
-  const { processed, geo } = listing
+export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
+  const [isUpdating, setIsUpdating] = useState(false)
+  const { processed, geo, userActions } = listing
+
+  const handleAction = async (
+    action: "save" | "hide" | "unsave" | "unhide"
+  ) => {
+    setIsUpdating(true)
+    const success = await updateListingAction(listing.id, action)
+    if (success && onActionUpdate) {
+      onActionUpdate()
+    }
+    setIsUpdating(false)
+  }
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "bg-green-500"
@@ -178,6 +199,59 @@ export function ListingCard({ listing }: ListingCardProps) {
 
         {/* Actions */}
         <div className="pt-2 border-t space-y-2">
+          {/* User Action Buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant={userActions?.isSaved ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+              onClick={() =>
+                handleAction(userActions?.isSaved ? "unsave" : "save")
+              }
+              disabled={isUpdating}
+            >
+              {userActions?.isSaved ? (
+                <HeartOff className="w-4 h-4 mr-2" />
+              ) : (
+                <Heart className="w-4 h-4 mr-2" />
+              )}
+              {userActions?.isSaved ? "Rimuovi dai Salvati" : "Salva"}
+            </Button>
+
+            <Button
+              variant={userActions?.isHidden ? "secondary" : "outline"}
+              size="sm"
+              className="flex-1"
+              onClick={() =>
+                handleAction(userActions?.isHidden ? "unhide" : "hide")
+              }
+              disabled={isUpdating}
+            >
+              {userActions?.isHidden ? (
+                <Eye className="w-4 h-4 mr-2" />
+              ) : (
+                <EyeOff className="w-4 h-4 mr-2" />
+              )}
+              {userActions?.isHidden ? "Mostra" : "Nascondi"}
+            </Button>
+          </div>
+
+          {/* Notes indicator */}
+          {userActions?.notes && (
+            <div className="flex items-center text-sm text-muted-foreground bg-muted p-2 rounded">
+              <StickyNote className="w-4 h-4 mr-2" />
+              <span className="flex-1 line-clamp-2">{userActions.notes}</span>
+            </div>
+          )}
+
+          {/* Notes Editor Button */}
+          <NotesEditor listing={listing} onNotesUpdate={onActionUpdate}>
+            <Button variant="outline" size="sm" className="w-full">
+              <StickyNote className="w-4 h-4 mr-2" />
+              {userActions?.notes ? "Modifica Note" : "Aggiungi Note"}
+            </Button>
+          </NotesEditor>
+
           <ListingDialog listing={listing}>
             <Button variant="outline" className="w-full">
               Vedi Dettagli

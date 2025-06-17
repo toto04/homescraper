@@ -1,11 +1,11 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
-import { ListingsPage } from "./components/ListingsPage"
+import { App } from "./App"
 
 import "./index.css"
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ListingsPage />
+    <App />
   </React.StrictMode>
 )

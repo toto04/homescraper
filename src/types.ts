@@ -76,9 +76,19 @@ export type ProcessedListing = z.infer<typeof AIExtractedFieldsSchema> & {
   id: string
 }
 
+export interface UserActions {
+  id: string // listing id
+  isHidden: boolean
+  isSaved: boolean
+  notes: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface CombinedListing extends RawListing {
   processed: ProcessedListing
   geo: GeoData
+  userActions?: UserActions
 }
 
 export interface FilterState {

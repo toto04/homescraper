@@ -6,6 +6,7 @@ import type {
   ProcessedListing,
   GeoData,
   CombinedListing,
+  UserActions,
 } from "../types"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -15,6 +16,7 @@ export class Database {
   private rawListingsDb: Datastore<RawListing>
   private processedListingsDb: Datastore<ProcessedListing>
   private geoDataDb: Datastore<GeoData>
+  private userActionsDb: Datastore<UserActions>
 
   constructor() {
     const dbPath = resolve(__dirname, "../../data/db")
@@ -34,10 +36,16 @@ export class Database {
       autoload: true,
     })
 
+    this.userActionsDb = Datastore.create({
+      filename: resolve(dbPath, "user_actions.db"),
+      autoload: true,
+    })
+
     // Create indexes for better performance
     this.rawListingsDb.ensureIndex({ fieldName: "id", unique: true })
     this.processedListingsDb.ensureIndex({ fieldName: "id", unique: true })
     this.geoDataDb.ensureIndex({ fieldName: "id", unique: true })
+    this.userActionsDb.ensureIndex({ fieldName: "id", unique: true })
   }
 
   // Raw Listings methods
@@ -97,35 +105,107 @@ export class Database {
     return await this.geoDataDb.findOne({ id })
   }
 
+  // User Actions methods
+  async getUserAction(listingId: string): Promise<UserActions | null> {
+    return await this.userActionsDb.findOne({ id: listingId })
+  }
+
+  async upsertUserAction(
+    userAction: Partial<UserActions> & { id: string }
+  ): Promise<UserActions> {
+    const now = new Date()
+    const existing = await this.getUserAction(userAction.id)
+
+    const updatedAction: UserActions = {
+      id: userAction.id,
+      isHidden: userAction.isHidden ?? existing?.isHidden ?? false,
+      isSaved: userAction.isSaved ?? existing?.isSaved ?? false,
+      notes: userAction.notes ?? existing?.notes ?? "",
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    }
+
+    await this.userActionsDb.update({ id: userAction.id }, updatedAction, {
+      upsert: true,
+    })
+    return updatedAction
+  }
+
+  async getAllUserActions(): Promise<UserActions[]> {
+    return await this.userActionsDb.find({})
+  }
+
+  async getSavedListings(): Promise<UserActions[]> {
+    return await this.userActionsDb.find({ isSaved: true })
+  }
+
+  async getHiddenListings(): Promise<UserActions[]> {
+    return await this.userActionsDb.find({ isHidden: true })
+  }
+
+  async getCombinedSavedListings(): Promise<CombinedListing[]> {
+    const savedActions = await this.getSavedListings()
+    const savedIds = savedActions.map(a => a.id)
+
+    if (savedIds.length === 0) return []
+
+    const allListings = await this.getCombinedListings(true) // include hidden
+    return allListings.filter(listing => savedIds.includes(listing.id))
+  }
+
+  async getCombinedHiddenListings(): Promise<CombinedListing[]> {
+    const hiddenActions = await this.getHiddenListings()
+    const hiddenIds = hiddenActions.map(a => a.id)
+
+    if (hiddenIds.length === 0) return []
+
+    const allListings = await this.getCombinedListings(true) // include hidden
+    return allListings.filter(listing => hiddenIds.includes(listing.id))
+  }
+
   // Combined data methods
-  async getCombinedListings(): Promise<CombinedListing[]> {
-    const [rawListings, processedListings, geoData] = await Promise.all([
-      this.getRawListings(),
-      this.getProcessedListings(),
-      this.getGeoData(),
-    ])
+  async getCombinedListings(
+    includeHidden: boolean = false
+  ): Promise<CombinedListing[]> {
+    const [rawListings, processedListings, geoData, userActions] =
+      await Promise.all([
+        this.getRawListings(),
+        this.getProcessedListings(),
+        this.getGeoData(),
+        this.getAllUserActions(),
+      ])
 
     // Create lookup maps for better performance
     const processedMap = new Map(
       processedListings.filter(Boolean).map(p => [p.id, p])
     )
     const geoMap = new Map(geoData.map(g => [g.id, g]))
+    const userActionsMap = new Map(userActions.map(u => [u.id, u]))
 
     // Combine the data
     const combined: CombinedListing[] = rawListings
       .map(listing => {
         const processedData = processedMap.get(listing.id)
         const geoDataItem = geoMap.get(listing.id)
+        const userAction = userActionsMap.get(listing.id)
 
         if (!processedData || !geoDataItem) {
           return null
         }
 
-        return {
+        // Filter out hidden listings unless explicitly requested
+        if (!includeHidden && userAction?.isHidden) {
+          return null
+        }
+
+        const combinedListing: CombinedListing = {
           ...listing,
           processed: processedData,
           geo: geoDataItem,
+          userActions: userAction || undefined,
         }
+
+        return combinedListing
       })
       .filter((listing): listing is CombinedListing => listing !== null)
 
@@ -133,11 +213,13 @@ export class Database {
   }
 
   async getCombinedListingById(id: string): Promise<CombinedListing | null> {
-    const [rawListing, processedListing, geoDataItem] = await Promise.all([
-      this.getRawListingById(id),
-      this.getProcessedListingById(id),
-      this.getGeoDataById(id),
-    ])
+    const [rawListing, processedListing, geoDataItem, userAction] =
+      await Promise.all([
+        this.getRawListingById(id),
+        this.getProcessedListingById(id),
+        this.getGeoDataById(id),
+        this.getUserAction(id),
+      ])
 
     if (!rawListing || !processedListing || !geoDataItem) {
       return null
@@ -147,6 +229,7 @@ export class Database {
       ...rawListing,
       processed: processedListing,
       geo: geoDataItem,
+      userActions: userAction || undefined,
     }
   }
 
@@ -156,6 +239,7 @@ export class Database {
       this.rawListingsDb.remove({}, { multi: true }),
       this.processedListingsDb.remove({}, { multi: true }),
       this.geoDataDb.remove({}, { multi: true }),
+      this.userActionsDb.remove({}, { multi: true }),
     ])
   }
 

@@ -2,7 +2,12 @@ import Fastify from "fastify"
 import { fileURLToPath } from "url"
 import { dirname, resolve } from "path"
 import { db } from "./lib/database"
-import type { RawListing, ProcessedListing, GeoData } from "./types"
+import type {
+  RawListing,
+  ProcessedListing,
+  GeoData,
+  UserActions,
+} from "./types"
 import { processListing } from "./lib/scrape"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -24,9 +29,10 @@ await fastify.register(import("@fastify/static"), {
 })
 
 // API Routes
-fastify.get("/api/listings", async (_request, reply) => {
+fastify.get("/api/listings", async (request, reply) => {
   try {
-    const listings = await db.getCombinedListings()
+    const { includeHidden } = request.query as { includeHidden?: string }
+    const listings = await db.getCombinedListings(includeHidden === "true")
     return { data: listings, count: listings.length }
   } catch (error) {
     fastify.log.error(error)
@@ -91,6 +97,104 @@ fastify.get("/api/stats", async (_request, reply) => {
   } catch (error) {
     fastify.log.error(error)
     reply.status(500).send({ error: "Failed to fetch stats" })
+  }
+})
+
+// User Actions endpoints
+fastify.get("/api/listings/saved", async (_request, reply) => {
+  try {
+    const listings = await db.getCombinedSavedListings()
+    return { data: listings, count: listings.length }
+  } catch (error) {
+    fastify.log.error(error)
+    reply.status(500).send({ error: "Failed to fetch saved listings" })
+  }
+})
+
+fastify.get("/api/listings/hidden", async (_request, reply) => {
+  try {
+    const listings = await db.getCombinedHiddenListings()
+    return { data: listings, count: listings.length }
+  } catch (error) {
+    fastify.log.error(error)
+    reply.status(500).send({ error: "Failed to fetch hidden listings" })
+  }
+})
+
+fastify.get<{ Params: { id: string } }>(
+  "/api/listings/:id/actions",
+  async (request, reply) => {
+    try {
+      const { id } = request.params
+      const userAction = await db.getUserAction(id)
+      return { data: userAction }
+    } catch (error) {
+      fastify.log.error(error)
+      reply.status(500).send({ error: "Failed to fetch user actions" })
+    }
+  }
+)
+
+fastify.post<{
+  Params: { id: string }
+  Body: { action: "save" | "hide" | "unsave" | "unhide"; notes?: string }
+}>("/api/listings/:id/actions", async (request, reply) => {
+  try {
+    const { id } = request.params
+    const { action, notes } = request.body
+
+    if (!action || !["save", "hide", "unsave", "unhide"].includes(action)) {
+      reply.status(400).send({ error: "Invalid action" })
+      return
+    }
+
+    let updateData: Partial<UserActions> & { id: string } = { id }
+
+    switch (action) {
+      case "save":
+        updateData.isSaved = true
+        break
+      case "unsave":
+        updateData.isSaved = false
+        break
+      case "hide":
+        updateData.isHidden = true
+        break
+      case "unhide":
+        updateData.isHidden = false
+        break
+    }
+
+    if (notes !== undefined) {
+      updateData.notes = notes
+    }
+
+    const userAction = await db.upsertUserAction(updateData)
+    return { success: true, data: userAction }
+  } catch (error) {
+    fastify.log.error(error)
+    reply.status(500).send({ error: "Failed to update user action" })
+  }
+})
+
+fastify.put<{
+  Params: { id: string }
+  Body: { notes: string }
+}>("/api/listings/:id/notes", async (request, reply) => {
+  try {
+    const { id } = request.params
+    const { notes } = request.body
+
+    if (typeof notes !== "string") {
+      reply.status(400).send({ error: "Notes must be a string" })
+      return
+    }
+
+    const userAction = await db.upsertUserAction({ id, notes })
+    return { success: true, data: userAction }
+  } catch (error) {
+    fastify.log.error(error)
+    reply.status(500).send({ error: "Failed to update notes" })
   }
 })
 
@@ -211,7 +315,7 @@ fastify.setNotFoundHandler((request, reply) => {
 const start = async () => {
   try {
     const port = process.env.PORT ? parseInt(process.env.PORT) : 3000
-    const host = process.env.HOST || "localhost"
+    const host = process.env.HOST || "0.0.0.0"
 
     await fastify.listen({ port, host })
     fastify.log.info(`Server listening on http://${host}:${port}`)

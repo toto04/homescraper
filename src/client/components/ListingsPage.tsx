@@ -30,29 +30,32 @@ export function ListingsPage() {
     minPunteggio: 0,
   })
 
-  useEffect(() => {
-    loadListings().then(data => {
-      console.log("Loaded listings:", data)
-      setListings(data)
+  const refreshListings = async () => {
+    setLoading(true)
+    const data = await loadListings()
+    console.log("Loaded listings:", data)
+    setListings(data)
 
-      // Set initial filter ranges based on data
-      const maxPrice = Math.max(...data.map(l => l.price))
-      const maxDuomoDistance = Math.max(...data.map(l => l.geo.deltaDuomo || 0))
-      const maxMetroDistance = Math.max(
-        ...data.map(l =>
-          l.geo.metro?.distance.value ? l.geo.metro.distance.value / 1000 : 0
-        )
+    // Set initial filter ranges based on data
+    const maxPrice = Math.max(...data.map(l => l.price))
+    const maxDuomoDistance = Math.max(...data.map(l => l.geo.deltaDuomo || 0))
+    const maxMetroDistance = Math.max(
+      ...data.map(l =>
+        l.geo.metro?.distance.value ? l.geo.metro.distance.value / 1000 : 0
       )
+    )
 
-      setFilters(prev => ({
-        ...prev,
-        priceRange: [0, maxPrice],
-        maxDuomoDistance,
-        maxMetroDistance,
-      }))
+    setFilters(prev => ({
+      ...prev,
+      priceRange: [0, maxPrice],
+      maxDuomoDistance,
+      maxMetroDistance,
+    }))
+    setLoading(false)
+  }
 
-      setLoading(false)
-    })
+  useEffect(() => {
+    refreshListings()
   }, [])
 
   const filteredAndSortedListings = useMemo(() => {
@@ -186,7 +189,7 @@ export function ListingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header currentPage="home" />
 
       <div className="container mx-auto px-4 py-6">
         {/* Statistics Overview */}
@@ -239,7 +242,11 @@ export function ListingsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredAndSortedListings.map(listing => (
-                  <ListingCard key={listing.id} listing={listing} />
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    onActionUpdate={refreshListings}
+                  />
                 ))}
               </div>
             )}
