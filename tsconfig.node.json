@@ -8,8 +8,9 @@
     "outDir": "./dist",
     "rootDir": "./",
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "removeComments": true,
 
     /* Module resolution */
     "moduleResolution": "bundler",

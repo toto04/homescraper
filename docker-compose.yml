@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  homescraper:
+    image: ghcr.io/toto04/homescraper:latest
+    container_name: homescraper-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount data directory as volume for persistence
+      - ./data:/app/data
+    environment:
+      # - HOST=0.0.0.0
+      # - PORT=3000
+      - GOOGLE_MAPS_API_KEY=your_api_key_here
+      - OPENAI_API_KEY=your_openai_key_here
+      - BOT_TOKEN=your_bot_token_here
+    networks:
+      - homescraper-network
+
+volumes:
+  homescraper_logs:
+    driver: local
+
+networks:
+  homescraper-network:
+    driver: bridge

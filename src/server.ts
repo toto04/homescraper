@@ -1,14 +1,14 @@
 import Fastify from "fastify"
 import { fileURLToPath } from "url"
 import { dirname, resolve } from "path"
-import { db } from "./lib/database"
+import { db } from "./lib/database.js"
 import type {
   RawListing,
   ProcessedListing,
   GeoData,
   UserActions,
-} from "./types"
-import { processListing } from "./lib/scrape"
+} from "./types.js"
+import { processListing } from "./lib/scrape.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -24,7 +24,10 @@ await fastify.register(import("@fastify/cors"), {
 
 // Serve static files from the client build
 await fastify.register(import("@fastify/static"), {
-  root: resolve(__dirname, "../dist/client"),
+  root:
+    process.env.NODE_ENV === "development"
+      ? resolve(__dirname, "../dist/client")
+      : "/app/dist/client",
   prefix: "/",
 })
 

@@ -7,7 +7,7 @@ import type {
   GeoData,
   CombinedListing,
   UserActions,
-} from "../types"
+} from "../types.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)

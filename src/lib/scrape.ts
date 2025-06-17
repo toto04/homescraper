@@ -10,8 +10,8 @@ import {
   type RawListing,
   type ProcessedListing,
   type GeoData,
-} from "../types"
-import { db } from "./database"
+} from "../types.js"
+import { db } from "./database.js"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
