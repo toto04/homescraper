@@ -27,7 +27,7 @@ await fastify.register(import("@fastify/static"), {
   root:
     process.env.NODE_ENV === "development"
       ? resolve(__dirname, "../dist/client")
-      : "/app/dist/client",
+      : resolve(__dirname, "../client"),
   prefix: "/",
 })
 

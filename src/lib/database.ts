@@ -19,7 +19,11 @@ export class Database {
   private userActionsDb: Datastore<UserActions>
 
   constructor() {
-    const dbPath = resolve(__dirname, "../../data/db")
+    const dbPath = resolve(
+      __dirname,
+      process.env.NODE_ENV === "development" ? "../" : "../../",
+      "../data/db"
+    )
 
     this.rawListingsDb = Datastore.create({
       filename: resolve(dbPath, "raw_listings.db"),
