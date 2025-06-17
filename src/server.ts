@@ -105,20 +105,20 @@ fastify.post<{ Body: { html: string; url: string } }>(
     try {
       const { html, url } = request.body
       if (!html || typeof html !== "string") {
-        reply.status(400).send({ error: "Invalid HTML input" })
+        reply.status(400).send({ success: false, error: "Invalid HTML input" })
         return
       }
-      if (!url || typeof url !== "string") {
-        reply.status(400).send({ error: "Invalid URL input" })
+      if (!url || typeof url !== "string" || !url.includes("immobiliare.it")) {
+        reply.status(400).send({ success: false, error: "Invalid URL input" })
         return
       }
 
       const data = await processListing({ html, url })
 
-      return reply.send({ success: true, data })
+      return reply.send({ success: data !== null, data })
     } catch (error) {
       fastify.log.error(error)
-      reply.status(500).send({ error: "Failed to parse HTML" })
+      reply.status(500).send({ success: false, error: "Failed to parse HTML" })
     }
   }
 )
