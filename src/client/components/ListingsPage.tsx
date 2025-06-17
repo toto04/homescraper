@@ -155,14 +155,14 @@ export function ListingsPage() {
     <div className="min-h-screen bg-gray-50">
       <Header currentPage="home" />
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Statistics Overview */}
         <StatsOverview
           listings={listings}
           filteredListings={filteredAndSortedListings}
         />
 
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           {/* Filters Sidebar */}
           <div className="lg:w-80">
             <Filters listings={listings} onFiltersChange={onFiltersChange} />
@@ -171,36 +171,51 @@ export function ListingsPage() {
           {/* Main Content */}
           <div className="flex-1">
             {/* Results Header */}
-            <div className="bg-white rounded-lg border p-4 mb-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="text-lg px-3 py-1">
-                    {filteredAndSortedListings.length} risultati
-                  </Badge>
-                  <span className="text-sm text-gray-500">
-                    su {listings.length} totali
-                  </span>
+            <div className="bg-white rounded-lg border p-3 sm:p-4 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center gap-2 xs:gap-3">
+                  <div className="flex flex-row items-center gap-2 xs:gap-3">
+                    <Badge
+                      variant="outline"
+                      className="text-base sm:text-lg px-2 sm:px-3 py-1 w-fit"
+                    >
+                      {filteredAndSortedListings.length} risultat
+                      {filteredAndSortedListings.length === 1 ? "o" : "i"}
+                    </Badge>
+                    <span className="text-xs sm:text-sm text-gray-500">
+                      su {listings.length} totali
+                    </span>
+                  </div>
                 </div>
-                <SortControls
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  onSortChange={handleSortChange}
-                />
+                <div className="border-t pt-3 sm:hidden">
+                  <SortControls
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                    onSortChange={handleSortChange}
+                  />
+                </div>
+                <div className="hidden sm:block">
+                  <SortControls
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                    onSortChange={handleSortChange}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Results Grid */}
             {filteredAndSortedListings.length === 0 ? (
-              <div className="bg-white rounded-lg border p-12 text-center">
-                <p className="text-gray-500 text-lg">
+              <div className="bg-white rounded-lg border p-6 sm:p-12 text-center">
+                <p className="text-gray-500 text-base sm:text-lg">
                   Nessun annuncio trovato con i filtri selezionati
                 </p>
-                <p className="text-gray-400 mt-2">
+                <p className="text-gray-400 mt-2 text-sm sm:text-base">
                   Prova a modificare i filtri per vedere più risultati
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 {filteredAndSortedListings.map(listing => (
                   <ListingCard
                     key={listing.id}
