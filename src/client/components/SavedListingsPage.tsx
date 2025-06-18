@@ -6,9 +6,16 @@ import { Loader2, Heart } from "lucide-react"
 import type { CombinedListing } from "../../types"
 import { loadSavedListings } from "../lib/data"
 
-export function SavedListingsPage() {
+interface SavedListingsPageProps {
+  openListingId?: string | null
+}
+
+export function SavedListingsPage({ openListingId }: SavedListingsPageProps) {
   const [listings, setListings] = useState<CombinedListing[]>([])
   const [loading, setLoading] = useState(true)
+  const [openDialogListingId, setOpenDialogListingId] = useState<string | null>(
+    openListingId || null
+  )
 
   const refreshListings = async () => {
     setLoading(true)
@@ -21,6 +28,27 @@ export function SavedListingsPage() {
   useEffect(() => {
     refreshListings()
   }, [])
+
+  // Update dialog state when openListingId prop changes
+  useEffect(() => {
+    setOpenDialogListingId(openListingId || null)
+  }, [openListingId])
+
+  const handleDialogOpenChange = (listingId: string) => (open: boolean) => {
+    if (open) {
+      setOpenDialogListingId(listingId)
+      // Update URL for sharing when opening dialog
+      const url = new URL(window.location.href)
+      url.searchParams.set("listing", listingId)
+      window.history.pushState({}, "", url.toString())
+    } else {
+      setOpenDialogListingId(null)
+      // Remove listing parameter from URL when closing
+      const url = new URL(window.location.href)
+      url.searchParams.delete("listing")
+      window.history.pushState({}, "", url.toString())
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,6 +90,8 @@ export function SavedListingsPage() {
               <ListingCard
                 key={listing.id}
                 listing={listing}
+                isDialogOpen={openDialogListingId === listing.id}
+                onDialogOpenChange={handleDialogOpenChange(listing.id)}
                 onActionUpdate={refreshListings}
               />
             ))}

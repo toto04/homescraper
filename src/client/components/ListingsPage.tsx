@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Header } from "./Header"
 import { StatsOverview } from "./StatsOverview"
-import { Filters } from "./Filters"
+import { defaultFilters, Filters } from "./Filters"
 import { ListingCard } from "./ListingCard"
 import { SortControls } from "./SortControls"
 import { Badge } from "./ui/badge"
@@ -16,52 +16,52 @@ import { loadListings } from "../lib/data"
 
 let timeout: NodeJS.Timeout | null = null
 
-export function ListingsPage() {
+interface ListingsPageProps {
+  openListingId?: string | null
+}
+
+export function ListingsPage({ openListingId }: ListingsPageProps) {
   const [listings, setListings] = useState<CombinedListing[]>([])
   const [loading, setLoading] = useState(true)
   const [sortField, setSortField] = useState<SortField>("punteggio")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
-  const [filters, setFilters] = useState<FilterState>({
-    tipologia: [],
-    priceRange: [0, 5000],
-    ariaCondizionata: null,
-    riscaldamento: [],
-    livelloArredamento: [],
-    maxDuomoDistance: 50,
-    maxMetroDistance: 5,
-    minPunteggio: 0,
-  })
+  const [openDialogListingId, setOpenDialogListingId] = useState<string | null>(
+    openListingId || null
+  )
+  const [filters, setFilters] = useState<FilterState>(defaultFilters)
 
-  const refreshListings = async () => {
+  const refreshListings = useCallback(async () => {
     setLoading(true)
     const data = await loadListings()
     console.log("Loaded listings:", data)
     setListings(data)
-
-    // Set initial filter ranges based on data
-    const maxPrice = Math.max(...data.map(l => l.price))
-    const maxDuomoDistance = Math.min(
-      Math.max(...listings.map(l => l.geo.deltaDuomo || 0), 0),
-      20000
-    )
-    const maxMetroDistance = Math.max(
-      ...data.map(l =>
-        l.geo.metro?.distance.value ? l.geo.metro.distance.value / 1000 : 0
-      )
-    )
-
-    setFilters(prev => ({
-      ...prev,
-      priceRange: [0, maxPrice],
-      maxDuomoDistance,
-      maxMetroDistance,
-    }))
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     refreshListings()
-  }, [])
+  }, [refreshListings])
+
+  // Update dialog state when openListingId prop changes
+  useEffect(() => {
+    setOpenDialogListingId(openListingId || null)
+  }, [openListingId])
+
+  const handleDialogOpenChange = (listingId: string) => (open: boolean) => {
+    if (open) {
+      setOpenDialogListingId(listingId)
+      // Update URL for sharing when opening dialog
+      const url = new URL(window.location.href)
+      url.searchParams.set("listing", listingId)
+      window.history.pushState({}, "", url.toString())
+    } else {
+      setOpenDialogListingId(null)
+      // Remove listing parameter from URL when closing
+      const url = new URL(window.location.href)
+      url.searchParams.delete("listing")
+      window.history.pushState({}, "", url.toString())
+    }
+  }
 
   const sorted = useMemo(() => {
     console.log("Sorting listings by:", sortField, sortDirection)
@@ -123,10 +123,10 @@ export function ListingsPage() {
     [filters]
   )
 
-  const filteredAndSortedListings = useMemo(
-    () => sorted.filter(filterFunction),
-    [listings, filterFunction, sorted]
-  )
+  const [fnsListings, setFnsListings] = useState<CombinedListing[]>(listings)
+  useEffect(() => {
+    setFnsListings(sorted.filter(filterFunction))
+  }, [filterFunction, sorted])
 
   const handleSortChange = (field: SortField, direction: SortDirection) => {
     setSortField(field)
@@ -136,13 +136,12 @@ export function ListingsPage() {
   const onFiltersChange = useCallback((f: FilterState) => {
     if (timeout) clearTimeout(timeout)
     timeout = setTimeout(() => {
-      console.log("Applying filters:", f)
       setFilters(f)
       timeout = null
     }, 500)
   }, [])
 
-  if (loading && listings.length === 0) {
+  if (loading && (!fnsListings || fnsListings.length === 0)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin" />
@@ -157,15 +156,12 @@ export function ListingsPage() {
 
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Statistics Overview */}
-        <StatsOverview
-          listings={listings}
-          filteredListings={filteredAndSortedListings}
-        />
+        <StatsOverview listings={listings} filteredListings={fnsListings} />
 
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           {/* Filters Sidebar */}
           <div className="lg:w-80">
-            <Filters listings={listings} onFiltersChange={onFiltersChange} />
+            <Filters onFiltersChange={onFiltersChange} />
           </div>
 
           {/* Main Content */}
@@ -179,8 +175,8 @@ export function ListingsPage() {
                       variant="outline"
                       className="text-base sm:text-lg px-2 sm:px-3 py-1 w-fit"
                     >
-                      {filteredAndSortedListings.length} risultat
-                      {filteredAndSortedListings.length === 1 ? "o" : "i"}
+                      {fnsListings.length} risultat
+                      {fnsListings.length === 1 ? "o" : "i"}
                     </Badge>
                     <span className="text-xs sm:text-sm text-gray-500">
                       su {listings.length} totali
@@ -205,7 +201,7 @@ export function ListingsPage() {
             </div>
 
             {/* Results Grid */}
-            {filteredAndSortedListings.length === 0 ? (
+            {fnsListings.length === 0 ? (
               <div className="bg-white rounded-lg border p-6 sm:p-12 text-center">
                 <p className="text-gray-500 text-base sm:text-lg">
                   Nessun annuncio trovato con i filtri selezionati
@@ -216,19 +212,13 @@ export function ListingsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                {filteredAndSortedListings.map(listing => (
+                {fnsListings.map(listing => (
                   <ListingCard
                     key={listing.id}
                     listing={listing}
-                    onActionUpdate={() => {
-                      const updatedListings = [...listings]
-                      const index = updatedListings.findIndex(
-                        l => l.id === listing.id
-                      )
-                      if (index !== -1) updatedListings.splice(index, 1)
-                      setListings(updatedListings)
-                      refreshListings()
-                    }}
+                    isDialogOpen={openDialogListingId === listing.id}
+                    onDialogOpenChange={handleDialogOpenChange(listing.id)}
+                    onActionUpdate={() => refreshListings()}
                   />
                 ))}
               </div>

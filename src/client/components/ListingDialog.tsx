@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import {
@@ -8,7 +9,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog"
-import { ExternalLink, MapPin, Star, Euro, Building } from "lucide-react"
+import {
+  ExternalLink,
+  MapPin,
+  Star,
+  Euro,
+  Building,
+  Share2,
+  Check,
+  StickyNote,
+  Eye,
+  EyeOff,
+  HeartOff,
+  Heart,
+} from "lucide-react"
 import type { CombinedListing } from "../../types"
 import {
   formatPrice,
@@ -16,26 +30,91 @@ import {
   getTipologiaLabel,
   getRiscaldamentoLabel,
   getArredamentoLabel,
+  updateListingAction,
 } from "../lib/data"
+import { generateListingUrl } from "../lib/utils"
+import { NotesEditor } from "./NotesEditor"
 
 interface ListingDialogProps {
   listing: CombinedListing
   children: React.ReactNode
+  isOpen?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function ListingDialog({ listing, children }: ListingDialogProps) {
-  const { processed, geo } = listing
+export function ListingDialog({
+  listing,
+  children,
+  isOpen,
+  onOpenChange,
+}: ListingDialogProps) {
+  const { processed, geo, userActions } = listing
+  const [internalOpen, setInternalOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  const dialogOpen = isOpen !== undefined ? isOpen : internalOpen
+
+  const handleAction = async (
+    action: "save" | "hide" | "unsave" | "unhide"
+  ) => {
+    setIsUpdating(true)
+    await updateListingAction(listing.id, action)
+    setIsUpdating(false)
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(open)
+    } else {
+      setInternalOpen(open)
+    }
+
+    // Update URL when dialog opens/closes for shareable links
+    const url = new URL(window.location.href)
+    if (open) {
+      url.searchParams.set("listing", listing.id)
+      // Use pushState for soft navigation (easy sharing)
+      window.history.pushState({}, "", url.toString())
+    } else {
+      url.searchParams.delete("listing")
+      // Use pushState for soft navigation when closing
+      window.history.pushState({}, "", url.toString())
+    }
+  }
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "bg-green-500"
-    if (score >= 60) return "bg-yellow-500"
-    return "bg-red-500"
+    if (score >= 80) return "text-green-500"
+    if (score >= 60) return "text-yellow-500"
+    return "text-red-500"
+  }
+
+  const handleCopyLink = async () => {
+    try {
+      const shareableUrl = generateListingUrl(listing.id)
+      await navigator.clipboard.writeText(shareableUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error("Failed to copy link:", err)
+      // Fallback for browsers without clipboard API
+      const shareableUrl = generateListingUrl(listing.id)
+      const textArea = document.createElement("textarea")
+      textArea.value = shareableUrl
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textArea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
   }
 
   return (
-    <Dialog>
+    <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl line-clamp-2 pr-8">
             {listing.title}
@@ -73,9 +152,11 @@ export function ListingDialog({ listing, children }: ListingDialogProps) {
             </div>
             <div className="bg-gray-50 rounded-lg p-4 text-center">
               <Star
-                className={`w-6 h-6 mx-auto mb-2 ${getScoreColor(processed.punteggio).replace("bg-", "text-")}`}
+                className={`w-6 h-6 mx-auto mb-2 ${getScoreColor(processed.punteggio)}`}
               />
-              <div className="font-bold text-lg">{processed.punteggio}</div>
+              <div className="font-bold text-lg">
+                {processed.punteggio.toFixed(1)}
+              </div>
               <div className="text-sm text-gray-500">punteggio</div>
             </div>
             <div className="bg-gray-50 rounded-lg p-4 text-center">
@@ -294,14 +375,97 @@ export function ListingDialog({ listing, children }: ListingDialogProps) {
             </div>
           )}
 
-          {/* Action Button */}
-          <div className="pt-4 border-t">
-            <Button asChild className="w-full" size="lg">
-              <a href={listing.url} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-5 h-5 mr-2" />
-                Vedi Annuncio Completo
-              </a>
-            </Button>
+          {/* Action Buttons */}
+          <div className="pt-4 border-t space-y-3">
+            {/* User Action Buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant={userActions?.isSaved ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() =>
+                  handleAction(userActions?.isSaved ? "unsave" : "save")
+                }
+                disabled={isUpdating}
+              >
+                {userActions?.isSaved ? (
+                  <HeartOff className="w-4 h-4 mr-2" />
+                ) : (
+                  <Heart className="w-4 h-4 mr-2" />
+                )}
+                {userActions?.isSaved ? "Un-Salva" : "Salva"}
+              </Button>
+
+              <Button
+                variant={userActions?.isHidden ? "secondary" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() =>
+                  handleAction(userActions?.isHidden ? "unhide" : "hide")
+                }
+                disabled={isUpdating}
+              >
+                {userActions?.isHidden ? (
+                  <Eye className="w-4 h-4 mr-2" />
+                ) : (
+                  <EyeOff className="w-4 h-4 mr-2" />
+                )}
+                {userActions?.isHidden ? "Mostra" : "Nascondi"}
+              </Button>
+            </div>
+
+            {/* Notes indicator */}
+            {userActions?.notes && (
+              <div className="flex items-center text-sm text-muted-foreground bg-muted p-2 rounded">
+                <StickyNote className="w-4 h-4 mr-2" />
+                <span className="flex-1">
+                  {userActions.notes.split("\n").map((line, index) => (
+                    <span key={index}>
+                      {line}
+                      {index < userActions.notes.split("\n").length - 1 && (
+                        <br />
+                      )}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            )}
+
+            {/* Notes Editor Button */}
+            <NotesEditor listing={listing}>
+              <Button variant="outline" size="sm" className="w-full">
+                <StickyNote className="w-4 h-4 mr-2" />
+                {userActions?.notes ? "Modifica Note" : "Aggiungi Note"}
+              </Button>
+            </NotesEditor>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleCopyLink}
+                className={`flex-1 transition-all duration-200 ${copied ? "bg-green-50 border-green-500 text-green-700" : ""}`}
+                size="lg"
+                disabled={copied}
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-5 h-5 mr-2" />
+                    Link Copiato!
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-5 h-5 mr-2" />
+                    Condividi Link
+                  </>
+                )}
+              </Button>
+              <Button asChild className="flex-1" size="lg">
+                <a href={listing.url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="w-5 h-5 mr-2" />
+                  Vedi Annuncio
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

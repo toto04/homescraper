@@ -14,6 +14,7 @@ import {
   Eye,
   HeartOff,
   StickyNote,
+  Share2,
 } from "lucide-react"
 import type { CombinedListing } from "../../types"
 import {
@@ -24,16 +25,25 @@ import {
   getArredamentoLabel,
   updateListingAction,
 } from "../lib/data"
+import { generateListingUrl } from "../lib/utils"
 import { ListingDialog } from "./ListingDialog"
 import { NotesEditor } from "./NotesEditor"
 
 interface ListingCardProps {
   listing: CombinedListing
   onActionUpdate?: () => void
+  isDialogOpen?: boolean
+  onDialogOpenChange?: (open: boolean) => void
 }
 
-export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
+export function ListingCard({
+  listing,
+  onActionUpdate,
+  isDialogOpen,
+  onDialogOpenChange,
+}: ListingCardProps) {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [copied, setCopied] = useState(false)
   const { processed, geo, userActions } = listing
 
   const handleAction = async (
@@ -53,8 +63,32 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
     return "bg-red-500"
   }
 
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    try {
+      const shareableUrl = generateListingUrl(listing.id)
+      await navigator.clipboard.writeText(shareableUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      // Fallback for browsers without clipboard API
+      const shareableUrl = generateListingUrl(listing.id)
+      const textArea = document.createElement("textarea")
+      textArea.value = shareableUrl
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textArea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow pt-0">
       <div className="relative">
         {listing.images.length > 0 && (
           <img
@@ -208,7 +242,11 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
             <div className="text-sm text-muted-foreground mb-2">Vincoli:</div>
             <div className="flex flex-wrap gap-1">
               {processed.vincoli.map((vincolo, index) => (
-                <Badge key={index} variant="destructive" className="text-xs">
+                <Badge
+                  key={index}
+                  variant="destructive"
+                  className="text-xs inline truncate max-w-full"
+                >
                   {vincolo}
                 </Badge>
               ))}
@@ -234,7 +272,7 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
               ) : (
                 <Heart className="w-4 h-4 mr-2" />
               )}
-              {userActions?.isSaved ? "Rimuovi dai Salvati" : "Salva"}
+              {userActions?.isSaved ? "Un-Salva" : "Salva"}
             </Button>
 
             <Button
@@ -259,7 +297,14 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
           {userActions?.notes && (
             <div className="flex items-center text-sm text-muted-foreground bg-muted p-2 rounded">
               <StickyNote className="w-4 h-4 mr-2" />
-              <span className="flex-1 line-clamp-2">{userActions.notes}</span>
+              <span className="flex-1">
+                {userActions.notes.split("\n").map((line, index) => (
+                  <span key={index}>
+                    {line}
+                    {index < userActions.notes.split("\n").length - 1 && <br />}
+                  </span>
+                ))}
+              </span>
             </div>
           )}
 
@@ -271,7 +316,11 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
             </Button>
           </NotesEditor>
 
-          <ListingDialog listing={listing}>
+          <ListingDialog
+            listing={listing}
+            isOpen={isDialogOpen}
+            onOpenChange={onDialogOpenChange}
+          >
             <Button variant="outline" className="w-full">
               Vedi Dettagli
             </Button>
@@ -281,6 +330,17 @@ export function ListingCard({ listing, onActionUpdate }: ListingCardProps) {
               <ExternalLink className="w-4 h-4 mr-2" />
               Vedi Annuncio
             </a>
+          </Button>
+          {/* Copy Link Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className={`w-full transition-all duration-200 ${copied ? "bg-green-50 border-green-500 text-green-700" : ""}`}
+            onClick={handleCopyLink}
+            disabled={copied}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            {copied ? "Link Copiato!" : "Condividi Link"}
           </Button>
         </div>
       </CardContent>

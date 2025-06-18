@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Checkbox } from "./ui/checkbox"
 import { Label } from "./ui/label"
@@ -11,7 +11,7 @@ import {
 } from "./ui/select"
 import { Slider } from "./ui/slider"
 import { Button } from "./ui/button"
-import type { FilterState, CombinedListing } from "../../types"
+import type { FilterState } from "../../types"
 import {
   getTipologiaLabel,
   getRiscaldamentoLabel,
@@ -19,50 +19,28 @@ import {
 } from "@/lib/data"
 
 interface FiltersProps {
-  listings: CombinedListing[]
   onFiltersChange: (filters: FilterState) => void
+}
+export const defaultFilters: FilterState = {
+  tipologia: [],
+  priceRange: [200, 1500],
+  ariaCondizionata: null,
+  riscaldamento: [],
+  livelloArredamento: [],
+  maxDuomoDistance: 10,
+  maxMetroDistance: 3,
+  minPunteggio: 0,
 }
 
 export function Filters(props: FiltersProps) {
-  const { listings } = props
-
-  const defaultFilters = useMemo(() => {
-    const maxPrice = Math.max(...listings.map(l => l.price))
-    const maxDuomoDistance = Math.min(
-      Math.max(...listings.map(l => l.geo.deltaDuomo || 0), 0),
-      10
-    )
-    const maxMetroDistance = Math.max(
-      ...listings.map(l =>
-        l.geo.metro?.distance.value ? l.geo.metro.distance.value / 1000 : 0
-      )
-    )
-
-    const defaultFilters: FilterState = {
-      tipologia: ["intero", "stanze_multiple"],
-      priceRange: [0, maxPrice],
-      ariaCondizionata: null,
-      riscaldamento: [],
-      livelloArredamento: [],
-      maxDuomoDistance,
-      maxMetroDistance,
-      minPunteggio: 0,
-    }
-    return defaultFilters
-  }, [listings])
-
-  const tipologiaOptions = useMemo(
-    () => [...new Set(listings.map(l => l.processed.tipologia))],
-    [listings]
-  )
-  const riscaldamentoOptions = useMemo(
-    () => [...new Set(listings.map(l => l.processed.riscaldamento))],
-    [listings]
-  )
-  const arredamentoOptions = useMemo(
-    () => [...new Set(listings.map(l => l.processed.livelloArredamento))],
-    [listings]
-  )
+  const tipologiaOptions = ["intero", "stanze_multiple", "stanza_singola"]
+  const riscaldamentoOptions = ["centralizzato", "autonomo", "nonSpecificato"]
+  const arredamentoOptions = [
+    "nonSpecificato",
+    "nonArredato",
+    "parzialmenteArredato",
+    "completamenteArredato",
+  ]
 
   const [filters, setFiltersState] = useState<FilterState>(defaultFilters)
 
@@ -77,10 +55,6 @@ export function Filters(props: FiltersProps) {
     },
     [props.onFiltersChange]
   )
-
-  useEffect(() => {
-    onChange(defaultFilters)
-  }, [onChange, defaultFilters])
 
   const handleTipologiaChange = (tipologia: string, checked: boolean) => {
     const newTipologia = checked
