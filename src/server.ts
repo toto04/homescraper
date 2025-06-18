@@ -221,8 +221,17 @@ fastify.post<{ Body: { html: string; url: string } }>(
       }
 
       const data = await processListing({ html, url })
-
-      return reply.send({ success: data !== null, data })
+      if (!data) {
+        reply
+          .status(500)
+          .send({ success: false, error: "Failed to parse HTML" })
+        return
+      }
+      return reply.send({
+        success: true,
+        data,
+        url: `https://homescraper.tommasomorganti.com/?listing=${data.raw.id}`,
+      })
     } catch (error) {
       fastify.log.error(error)
       reply.status(500).send({ success: false, error: "Failed to parse HTML" })
