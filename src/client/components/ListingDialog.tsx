@@ -34,6 +34,7 @@ import {
 } from "../lib/data"
 import { generateListingUrl } from "../lib/utils"
 import { NotesEditor } from "./NotesEditor"
+import { GeoAddress } from "./ListingCard/GeoAddress"
 
 interface ListingDialogProps {
   listing: CombinedListing
@@ -120,8 +121,7 @@ export function ListingDialog({
             {listing.title}
           </DialogTitle>
           <DialogDescription className="flex items-center">
-            <MapPin className="w-4 h-4 mr-1" />
-            {processed.indirizzo}
+            <GeoAddress geo={geo} />
           </DialogDescription>
         </DialogHeader>
 

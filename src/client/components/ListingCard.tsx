@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import {
   ExternalLink,
-  MapPin,
   Star,
   AirVent,
   Thermometer,
@@ -28,6 +27,7 @@ import {
 import { generateListingUrl } from "../lib/utils"
 import { ListingDialog } from "./ListingDialog"
 import { NotesEditor } from "./NotesEditor"
+import { GeoAddress } from "./ListingCard/GeoAddress"
 
 interface ListingCardProps {
   listing: CombinedListing
@@ -111,22 +111,7 @@ export function ListingCard({
 
       <CardHeader className="pb-3">
         <CardTitle className="text-lg line-clamp-2">{listing.title}</CardTitle>
-        <div className="flex items-center text-sm text-muted-foreground">
-          <a
-            href={
-              geo.geocode
-                ? `https://www.google.com/maps/place/?q=place_id:${geo.geocode.place_id}`
-                : `https://www.google.com/maps/place/?q=${geo.address}`
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center hover:underline gap-0.5"
-          >
-            <MapPin className="w-4 h-4 mr-1" />
-            {geo.address}
-            <ExternalLink className="w-4 h-4 mr-1" />
-          </a>
-        </div>
+        <GeoAddress geo={geo} />
       </CardHeader>
 
       <CardContent className="space-y-4 flex flex-col h-full">
